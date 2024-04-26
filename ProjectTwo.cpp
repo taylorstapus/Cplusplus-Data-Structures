@@ -3,8 +3,10 @@
 
 #include <iostream>
 #include <fstream>
+# include <vector>
+# include <sstream>
 
-#include "CSVparser.hpp"
+// #include "CSVparser.hpp"
 
 using namespace std;
 
@@ -54,7 +56,6 @@ public:
 	void InOrder();
 	void Insert(Course course);
 	void PrintCourseInfo(string courseNumber);
-	int NumCoursePrereq(Course course);
 };
 
 //Deafualt Coonstructor 
@@ -85,20 +86,6 @@ void BinarySearchTree::Insert(Course course) {
 // Print course info
 void BinarySearchTree::PrintCourseInfo(string courseNumber) {
 	this->printCourseInfo(root, courseNumber);
-}
-
-//Total of Prereqs
-int BinarySearchTree::NumCoursePrereq(Course course) {
-	int totalPrereq = 0;
-	for (unsigned int i = 0; i < course.coursePrereq.size(); i++) {
-		if (course.coursePrereq.at(i).length() > 0) {
-			totalPrereq++;
-		}
-		return totalPrereq;
-	}
-
-
-
 }
 
 
@@ -143,82 +130,77 @@ void BinarySearchTree::inOrder(Node* node) {
 //printCourseInfo function
 void BinarySearchTree::printCourseInfo(Node* current, string courseNumber) {
 	while (current != nullptr) {
-		if (current->course.courseNumber.compare(courseNumber) == 0) {
-			cout << endl << current->course.courseNumber << ", " << current->course.courseName << endl;
-			unsigned int size = NumCoursePrereq(current->course);
-			cout << "Prerequisites: ";
 
-			// if prereq exists then print
-			unsigned int i = 0;
-			for (i = 0; i < size; i++) {
-				cout << current->course.coursePrereq.at(i);
+		if (current->course.courseNumber.compare(courseNumber) == 0) {
+			auto size = current->course.coursePrereq.size();
+			cout << current->course.courseNumber << ", " << current->course.courseName << endl;
+			cout << "Prerequisites: " << endl;
+
+			//if there are no prereqs then tell user and return
+			if (current->course.coursePrereq.empty()) {
+				cout << "No prerequisites" << endl;
+				return;
+			}
+
+			// if there are prereqs then print and return
+			for (unsigned int i = 0; i < size; i++) {
+				cout << current->course.coursePrereq[i];
 				if (i != size - 1) {
 					cout << ", ";
 				}
 			}
-
-			//if there are no prereqs then tell user and return
-			if (i == 0) {
-				cout << "No prerequisites" << endl;
-				return;
-			}
+			cout << endl;
+			return;
 		}
 
-		else if (courseNumber.compare(current->course.courseNumber) < 0) {
+		if (courseNumber.compare(current->course.courseNumber) < 0) {
 			current = current->left;
 		}
 
 		else {
 			current = current->right;
 		}
-
-		cout << "Course" << courseNumber << " not found" << endl;
 	}
+	cout << "Course" << courseNumber << " not found" << endl;
 
 }
 
 //Load courses from file
 bool loadCourses(string csvPath, BinarySearchTree* bst) {
 	//Open course file
-	try {
-		ifstream courseFile(csvPath);
-		if (courseFile.is_open()) {
-			while (!courseFile.eof()) {
-				//vector to hold data
-				vector<string> courseInfo;
-				string courseData;
+	ifstream courseFile(csvPath);
+	if (courseFile.is_open()) {
+		string courseData;
+		while (getline(courseFile, courseData)) {
+			//vector to hold data
+			vector<string> courseInfo;
 
-				getline(courseFile, courseData);
-				while (courseData.length() > 0) {
+			while (courseData.length() > 0) {
 
-					//get substring of each course data and add to vector
-					unsigned int comma = courseData.find(',');
-					if (comma < 100) {
-						courseInfo.push_back(courseData.substr(0, comma));
-						courseData.erase(0, comma + 1);
-					}
-					else {
-						courseInfo.push_back(courseData.substr(0, courseData.length()));
-						courseData = "";
-					}
+				//get substring of each course data and add to vector
+				unsigned int comma = courseData.find(',');
+				if (comma < 100) {
+					courseInfo.push_back(courseData.substr(0, comma));
+					courseData.erase(0, comma + 1);
 				}
-
-				//insert into Binary Tree
-				Course course;
-				course.courseNumber = courseInfo[0];
-				course.courseName = courseInfo[1];
-
-				for (unsigned int i = 2; i < courseInfo.size(); i++) {
-					course.coursePrereq.push_back(courseInfo[i]);
+				else {
+					courseInfo.push_back(courseData.substr(0, courseData.length()));
+					courseData = "";
 				}
-				bst->Insert(course);
 			}
-			courseFile.close();
-			return true;
+
+			//insert into Binary Tree
+			Course course;
+			course.courseNumber = courseInfo[0];
+			course.courseName = courseInfo[1];
+
+			for (unsigned int i = 2; i < courseInfo.size(); i++) {
+				course.coursePrereq.push_back(courseInfo[i]);
+			}
+			bst->Insert(course);
 		}
-	}
-	catch (csv::Error& e) {
-		cerr << e.what() << endl;
+		courseFile.close();
+		return true;
 	}
 	return false;
 }
@@ -247,6 +229,7 @@ int main(int argc, char* argv[]) {
 	//make user choice a string
 	string choice = "0";
 	int userChoice = choice[0] - '0';
+	bool success = 0;
 
 	//menu
 
@@ -266,7 +249,6 @@ int main(int argc, char* argv[]) {
 		else {
 			userChoice = 0;
 		}
-		bool success = 1;
 
 		//users selection
 		switch (userChoice) {
@@ -276,21 +258,19 @@ int main(int argc, char* argv[]) {
 			if (bst == nullptr) {
 				bst = new BinarySearchTree();
 			}
-			// ask user of input
-			if (csvPath.length() == 0) {
+			while (!success) {
+				// ask user of input
 				cout << "Enter File: " << endl;
 				cin >> csvPath;
 
+				//file opened successfully
+				success = loadCourses(csvPath, bst);
+				if (!success) {
+					cout << "File is not found.\n" << endl;
+				}
 			}
-			//file opened successfully
-			success = loadCourses(csvPath, bst);
-			if (success) {
-				cout << "Courses have been loaded.\n" << endl;
-			}
-			else {
-				cout << "File is not found.\n" << endl;
-			}
-			csvPath = "";
+			cout << "Courses have been loaded.\n" << endl;
+			//csvPath = "";
 			break;
 
 		case 2:
@@ -300,16 +280,18 @@ int main(int argc, char* argv[]) {
 
 		case 3:
 			//search course and print course info if found
-			if (bst != nullptr && success) {
-				if (courseId.length() == 0) {
-					cout << "Enter Course ID: ";
-					cin >> courseId;
-					for (auto& userChoice : courseId) {
-						userChoice = toupper(userChoice);
-					}
+			if (success) {
+				courseId = "";
+				cout << "Enter Course ID: " << endl;
+				cin >> courseId;
+				for (auto& userChoice : courseId) {
+					userChoice = toupper(userChoice);
 				}
 				bst->PrintCourseInfo(courseId);
 				cout << endl;
+			}
+			else {
+				cout << "No file to read\n" << endl;
 			}
 			break;
 
@@ -321,7 +303,8 @@ int main(int argc, char* argv[]) {
 			}
 
 		}
-		cout << "Good bye." << endl;
-		return 0;
 	}
+
+	cout << "Good bye." << endl;
+	return 0;
 }
